@@ -11,7 +11,7 @@ const getApiBaseUrl = () => {
   }
   
   // Fallback para desarrollo local
-  return 'http://localhost:8000/api/v1';
+  return 'https://bookandgo.expedicionesallinkay.com/api/v1';
 };
 
 // Crea una instancia base de Axios
