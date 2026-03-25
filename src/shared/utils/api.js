@@ -1,9 +1,12 @@
 // src/shared/utils/api.js
 import axios from 'axios';
 
+const API_URL = import.meta.env.VITE_API_URL?.replace(/\/+$/, '') || 'http://localhost:8000/api/v1';
+
+
 // Crea una instancia base de Axios
 const api = axios.create({
-  baseURL: 'https://bookandgo.expedicionesallinkay.com/api/v1',
+  baseURL: `${API_URL}`,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
