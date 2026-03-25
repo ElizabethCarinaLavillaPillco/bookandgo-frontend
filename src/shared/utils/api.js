@@ -1,17 +1,27 @@
 // src/shared/utils/api.js
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL?.replace(/\/+$/, '') || 'http://localhost:8000/api/v1';
-
+// ✅ Obtener URL base desde variable de entorno, con fallback seguro
+const getApiBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  
+  // Si está definida, quitar slash final si existe
+  if (envUrl) {
+    return envUrl.replace(/\/+$/, '');
+  }
+  
+  // Fallback para desarrollo local
+  return 'http://localhost:8000/api/v1';
+};
 
 // Crea una instancia base de Axios
 const api = axios.create({
-  baseURL: `${API_URL}`,
+  baseURL: getApiBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
-  withCredentials: false,
+  withCredentials: false, // ← Importante: false para tokens Bearer
 });
 
 // Interceptor para agregar token si existe
