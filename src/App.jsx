@@ -2,6 +2,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect } from 'react';
+import { createChat } from '@n8n/chat';
+import '@n8n/chat/style.css';
 import useAuthStore from './store/authStore';
 import './App.css';
 
@@ -63,6 +65,12 @@ function App() {
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
+
+  useEffect(() => {
+    createChat({
+      webhookUrl: 'https://kawazzzaki.app.n8n.cloud/webhook/94e252ba-b2f8-4736-8e9c-dee3bbf1470e/chat',
+    });
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
