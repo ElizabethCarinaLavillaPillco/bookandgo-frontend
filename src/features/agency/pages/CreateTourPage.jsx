@@ -2,13 +2,7 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, 
-  ArrowRight, 
-  Save,
-  Check,
-  AlertCircle
-} from 'lucide-react';
+import { ArrowLeft, ArrowRight, Save, Check, AlertCircle } from 'lucide-react';
 import api from '../../../shared/utils/api';
 import TourBasicInfo from '../components/TourBasicInfo';
 import TourPricing from '../components/TourPricing';
@@ -28,17 +22,14 @@ const CreateTourPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [validationErrors, setValidationErrors] = useState({});
-  
+
   const [formData, setFormData] = useState({
-    // Información básica
     title: '',
     category_id: '',
     location_city: '',
     location_region: '',
     location_country: 'Peru',
     description: '',
-    
-    // Precios
     price: '',
     discount_price: '',
     duration_days: 0,
@@ -46,33 +37,27 @@ const CreateTourPage = () => {
     max_people: 10,
     min_people: 1,
     difficulty_level: 'easy',
-    
-    // Detalles
     itinerary: '',
     includes: '',
     excludes: '',
     requirements: '',
     cancellation_policy: '',
     cancellation_hours: 24,
-    
-    // Imágenes
+    // featured_image puede ser File | string (URL)
     featured_image: '',
+    // images puede ser (File | string)[]
     images: [],
   });
 
   const updateFormData = (data) => {
     setFormData((prev) => ({ ...prev, ...data }));
-    // Limpiar errores del campo actualizado
     if (validationErrors) {
       const newErrors = { ...validationErrors };
-      Object.keys(data).forEach(key => {
-        delete newErrors[key];
-      });
+      Object.keys(data).forEach((key) => delete newErrors[key]);
       setValidationErrors(newErrors);
     }
   };
 
-  // 👇 VALIDACIONES POR PASO
   const validateStep = (step) => {
     const errors = {};
 
@@ -104,8 +89,8 @@ const CreateTourPage = () => {
 
     if (step === 4) {
       if (!formData.featured_image) errors.featured_image = 'Debes agregar al menos 1 imagen';
-      const totalImages = [formData.featured_image, ...formData.images].filter(Boolean).length;
-      if (totalImages < 3) errors.images = 'Debes agregar al menos 3 imágenes';
+      const total = [formData.featured_image, ...formData.images].filter(Boolean).length;
+      if (total < 3) errors.images = 'Debes agregar al menos 3 imágenes';
     }
 
     setValidationErrors(errors);
@@ -130,25 +115,69 @@ const CreateTourPage = () => {
     }
   };
 
-  const handleSubmit = async (publish = false) => {
-    // Validar todos los pasos
-    let allValid = true;
-    for (let i = 1; i <= STEPS.length; i++) {
-      if (!validateStep(i)) {
-        allValid = false;
-        setError(`Hay errores en el paso ${i}. Por favor revisa todos los campos.`);
-        setCurrentStep(i);
-        return;
+  /**
+   * Construye el payload como FormData cuando hay archivos,
+   * o como JSON cuando todo son URLs.
+   */
+  const buildPayload = (publish) => {
+    const allImages = [formData.featured_image, ...formData.images].filter(Boolean);
+    const hasFiles = allImages.some((img) => img instanceof File);
+
+    if (hasFiles) {
+      const fd = new FormData();
+
+      // Campos de texto
+      const textFields = {
+        category_id: parseInt(formData.category_id),
+        title: formData.title,
+        description: formData.description,
+        itinerary: formData.itinerary,
+        includes: formData.includes,
+        excludes: formData.excludes,
+        requirements: formData.requirements,
+        cancellation_policy: formData.cancellation_policy,
+        cancellation_hours: parseInt(formData.cancellation_hours),
+        price: parseFloat(formData.price),
+        discount_price: formData.discount_price ? parseFloat(formData.discount_price) : '',
+        duration_days: parseInt(formData.duration_days),
+        duration_hours: parseInt(formData.duration_hours),
+        max_people: parseInt(formData.max_people),
+        min_people: parseInt(formData.min_people),
+        difficulty_level: formData.difficulty_level,
+        location_city: formData.location_city,
+        location_region: formData.location_region,
+        location_country: formData.location_country,
+        is_published: publish ? 1 : 0,
+      };
+
+      Object.entries(textFields).forEach(([key, val]) => {
+        if (val !== '' && val !== null && val !== undefined) {
+          fd.append(key, val);
+        }
+      });
+
+      // Imagen destacada
+      if (formData.featured_image instanceof File) {
+        fd.append('featured_image', formData.featured_image);
+      } else if (formData.featured_image) {
+        fd.append('featured_image_url', formData.featured_image);
       }
+
+      // Imágenes adicionales
+      formData.images.forEach((img, i) => {
+        if (img instanceof File) {
+          fd.append(`additional_images[${i}]`, img);
+        } else if (img) {
+          fd.append(`additional_image_urls[${i}]`, img);
+        }
+      });
+
+      return { data: fd, isFormData: true };
     }
 
-    if (!allValid) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const payload = {
+    // Solo URLs — enviar JSON normal
+    return {
+      data: {
         ...formData,
         category_id: parseInt(formData.category_id),
         price: parseFloat(formData.price),
@@ -159,20 +188,42 @@ const CreateTourPage = () => {
         min_people: parseInt(formData.min_people),
         cancellation_hours: parseInt(formData.cancellation_hours),
         is_published: publish,
-      };
+        featured_image_url: formData.featured_image,
+        additional_image_urls: formData.images,
+      },
+      isFormData: false,
+    };
+  };
 
-      console.log('Enviando payload:', payload); // Debug
+  const handleSubmit = async (publish = false) => {
+    // Validar todos los pasos
+    for (let i = 1; i <= STEPS.length; i++) {
+      if (!validateStep(i)) {
+        setError(`Hay errores en el paso ${i}. Por favor revisa todos los campos.`);
+        setCurrentStep(i);
+        return;
+      }
+    }
 
-      const response = await api.post('/tours', payload);
+    setLoading(true);
+    setError(null);
 
-      if (response.data.success) {
+    try {
+      const { data, isFormData } = buildPayload(publish);
+
+      const config = isFormData
+        ? { headers: { 'Content-Type': 'multipart/form-data' } }
+        : {};
+
+      const response = await api.post('/tours', data, config);
+
+      // Algunos backends devuelven 201 sin campo success
+      if (response.status === 201 || response.data.success) {
         navigate('/agency/tours');
       }
     } catch (err) {
-      console.error('Error completo:', err.response?.data); // Debug
-      
+      console.error('Error completo:', err.response?.data);
       if (err.response?.data?.errors) {
-        // Errores de validación del backend
         setValidationErrors(err.response.data.errors);
         setError('Hay errores en el formulario. Por favor revísalos.');
       } else {
@@ -197,13 +248,8 @@ const CreateTourPage = () => {
             <ArrowLeft className="w-5 h-5" />
             Volver al dashboard
           </button>
-          
-          <h1 className="text-3xl font-black text-gray-900 mb-2">
-            Crear Nuevo Tour
-          </h1>
-          <p className="text-gray-600">
-            Completa la información para publicar tu experiencia
-          </p>
+          <h1 className="text-3xl font-black text-gray-900 mb-2">Crear Nuevo Tour</h1>
+          <p className="text-gray-600">Completa la información para publicar tu experiencia</p>
         </div>
 
         {/* Progress Steps */}
@@ -214,16 +260,10 @@ const CreateTourPage = () => {
                 <div className="flex flex-col items-center flex-1">
                   <div
                     className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all ${
-                      currentStep >= step.id
-                        ? 'bg-primary text-gray-900'
-                        : 'bg-gray-200 text-gray-500'
+                      currentStep >= step.id ? 'bg-primary text-gray-900' : 'bg-gray-200 text-gray-500'
                     }`}
                   >
-                    {currentStep > step.id ? (
-                      <Check className="w-5 h-5" />
-                    ) : (
-                      step.id
-                    )}
+                    {currentStep > step.id ? <Check className="w-5 h-5" /> : step.id}
                   </div>
                   <span className="text-xs font-semibold mt-2 text-center hidden md:block">
                     {step.name}
@@ -240,15 +280,13 @@ const CreateTourPage = () => {
             ))}
           </div>
 
-          {/* Error Message */}
           {error && (
-            <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg mb-6 animate-fade-in flex items-start gap-3">
+            <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg mb-6 flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
               <p className="text-red-700 text-sm">{error}</p>
             </div>
           )}
 
-          {/* Step Content */}
           <CurrentStepComponent
             formData={formData}
             updateFormData={updateFormData}
@@ -256,7 +294,7 @@ const CreateTourPage = () => {
           />
         </div>
 
-        {/* Navigation Buttons */}
+        {/* Navigation */}
         <div className="flex items-center justify-between gap-4">
           <button
             onClick={handlePrevious}
