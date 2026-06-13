@@ -68,7 +68,7 @@ function App() {
 
   useEffect(() => {
     createChat({
-      webhookUrl: 'https://kawazzzaki.app.n8n.cloud/webhook/94e252ba-b2f8-4736-8e9c-dee3bbf1470e/chat',
+      webhookUrl: 'https://bukango123.app.n8n.cloud/webhook/f9401a5d-c968-4f58-a2ef-8a27b3f0320b/chat',
     });
   }, []);
 
